@@ -12,6 +12,12 @@
     ".": "./dist/cli.js",
     "./config": "./dist/core/config.js"
   },
+  "pnpm": {
+    "overrides": {
+      "esbuild": "0.28.1",
+      "qs": "6.15.2"
+    }
+  },
   "engines": {
     "node": ">=20"
   },
