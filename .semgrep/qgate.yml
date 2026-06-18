@@ -6,7 +6,7 @@ rules:
       - javascript
     severity: ERROR
     patterns:
-      - pattern: execa($CMD, $ARGS, { ..., shell: true, ... })
+      - pattern: 'execa($CMD, $ARGS, { ..., shell: true, ... })'
 
   - id: qgate-no-process-exit
     message: Use process.exitCode at CLI boundaries so library functions remain testable.
@@ -14,7 +14,7 @@ rules:
       - typescript
       - javascript
     severity: WARNING
-    pattern: process.exit($CODE)
+    pattern: 'process.exit($CODE)'
 
   - id: qgate-no-dynamic-code-execution
     message: Dynamic code execution would make QGate harder to reason about deterministically.
@@ -23,5 +23,5 @@ rules:
       - javascript
     severity: ERROR
     pattern-either:
-      - pattern: eval(...)
-      - pattern: new Function(...)
+      - pattern: 'eval(...)'
+      - pattern: 'new Function(...)'
