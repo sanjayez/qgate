@@ -93,8 +93,8 @@ verdict. Each adapter should:
 - preserve enough raw evidence for reviewers to audit the result.
 
 Tool output feeds QGate-owned artifacts such as `impact-map.json`,
-`risk-matrix.json`, `execution-results.json`, and `summary.json`. QGate owns the
-final policy decision.
+`risk-matrix.json`, and `summary.json`. Execution-phase tools will also feed a
+future `execution-results.json` artifact. QGate owns the final policy decision.
 
 ## Default OSS Toolchain
 
