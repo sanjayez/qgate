@@ -159,7 +159,7 @@ async function readFileIfText(filePath: string): Promise<string> {
     }
 
     const buffer = await readFile(filePath);
-    if (isLikelyBinary(filePath, buffer)) {
+    if (isLikelyBinary(buffer)) {
       return "";
     }
     const content = buffer.toString("utf8");
@@ -173,8 +173,8 @@ async function readFileIfText(filePath: string): Promise<string> {
   }
 }
 
-function isLikelyBinary(filePath: string, buffer: Buffer): boolean {
-  return BINARY_EXTENSIONS.has(path.extname(filePath).toLowerCase()) || buffer.includes(0);
+function isLikelyBinary(buffer: Buffer): boolean {
+  return buffer.includes(0);
 }
 
 function higherConfidence(left: Surface["confidence"], right: Surface["confidence"]): Surface["confidence"] {

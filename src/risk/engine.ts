@@ -89,7 +89,7 @@ function collectBlockers(input: {
 }): GateBlocker[] {
   const blockers: GateBlocker[] = [];
 
-  if (input.changedFileCount > 0 && input.intent.confidence === "low") {
+  if (input.mode !== "report-only" && input.changedFileCount > 0 && input.intent.confidence === "low") {
     blockers.push({
       id: "INTENT-001",
       severity: "critical",

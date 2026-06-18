@@ -133,6 +133,28 @@ describe("risk engine", () => {
     expect(summary.blockers).toEqual([]);
   });
 
+  it("does not emit intent blockers in report-only mode", () => {
+    const intent: Intent = {
+      summary: "unknown",
+      source: "unknown",
+      confidence: "low"
+    };
+    const matrix = buildRiskMatrix([], noFallow);
+
+    const summary = buildSummary({
+      runId: "run",
+      artifactDir: "/tmp/run",
+      mode: "report-only",
+      intent,
+      changedFileCount: 1,
+      riskMatrix: matrix,
+      fallow: noFallow
+    });
+
+    expect(summary.verdict).toBe("pass");
+    expect(summary.blockers).toEqual([]);
+  });
+
   it("derives generatedAt deterministically from timestamp-shaped run ids", () => {
     const intent: Intent = {
       summary: "No changed files detected",
