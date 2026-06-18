@@ -77,7 +77,8 @@ export default defineConfig({
 - `changedFiles`: git file status.
 - `project`: detected project metadata.
 - `surfaces`: classified changed code surfaces.
-- `fallow`: optional normalized Fallow output.
+- tool adapter outputs; the current first adapter field is `fallow`, and later
+  adapters should move toward a generic normalized tool result shape.
 
 ### `risk-matrix.json`
 
@@ -114,7 +115,7 @@ V1 blocks on:
 
 - operational failure reading the diff
 - no inferable PR intent for a non-empty change
-- Fallow fail-level findings when Fallow is enabled and available
+- fail-level optional analyzer findings when enabled and available
 - high or critical security findings once scanner execution is enabled
 - failed targeted tests once runner execution is enabled
 - breaking API contract findings once schema diff execution is enabled
@@ -123,7 +124,7 @@ V1 blocks on:
 
 V1 warns on:
 
-- Fallow unavailable
+- optional tool unavailable
 - OpenAPI schema unavailable
 - low-confidence surface classification
 - missing optional tools
@@ -135,14 +136,14 @@ V1 warns on:
 V1 recognizes these tools:
 
 - Fallow
+- Semgrep
+- Gitleaks
+- OSV-Scanner
 - Playwright
 - Vitest
 - Jest
 - Testing Library
 - MSW
-- Semgrep
-- Gitleaks
-- OSV-Scanner
 - Schemathesis
 - oasdiff
 - axe-core through Playwright

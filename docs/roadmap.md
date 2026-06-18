@@ -22,11 +22,12 @@ non-happy-path risk, test obligations, and a merge verdict.
 - Detect package manager and available scripts.
 - Classify changed files into routes, components, forms, API handlers, auth, config, dependencies, migrations, and tests.
 
-## Phase 4: Optional Fallow Adapter
+## Phase 4: Tool Adapter Foundation
 
-- Run `fallow audit --format json --quiet` when Fallow is available.
-- Normalize PR risk, duplication, complexity, architecture, dependency hygiene, dead code, and Next.js correctness findings.
-- Treat Fallow as optional JS/TS codebase intelligence, not a hard dependency.
+- Define a common adapter contract for optional OSS tools.
+- Detect tool availability and degrade visibly when optional tools are missing.
+- Normalize adapter output into QGate findings and artifacts.
+- Start with Fallow and Semgrep for static/codebase analysis, Gitleaks for secrets, and OSV-Scanner for dependencies.
 
 ## Phase 5: Native Impact Analysis
 

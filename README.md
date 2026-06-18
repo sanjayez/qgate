@@ -28,9 +28,9 @@ qgate run --base origin/main --head HEAD
 qgate report latest
 ```
 
-Fallow is optional. When installed in a JS/TS project, `qgate` runs
-`fallow audit --format json --quiet` and folds its deterministic codebase
-intelligence into the gate report.
+QGate is failure-mode driven, not coverage driven. Optional OSS tools such as
+Fallow, Semgrep, Gitleaks, OSV-Scanner, Playwright, and Schemathesis contribute
+evidence, but QGate owns the risk matrix and final verdict.
 
 ## Documentation
 

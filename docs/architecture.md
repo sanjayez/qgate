@@ -12,25 +12,38 @@ Primary commands:
 - `qgate run`
 - `qgate report`
 
-## Evidence Pipeline
+## Failure-Mode Pipeline
 
-The pipeline is adapter-based:
+QGate is failure-mode driven, not coverage driven. The main question is not
+"did tests run?" but "did every changed behavior prove the relevant failure
+paths?"
 
-1. Read config and create a run directory.
-2. Read declared intent from GitHub PR metadata, branch names, and commits when
-   available.
-3. Read local git diff and changed-file status.
-4. Detect project shape, package manager, scripts, frameworks, and installed
-   tools.
-5. Build observed intent from changed surfaces such as forms, APIs, auth, data,
-   dependencies, config, routes, components, and tests.
-6. Optionally run an LLM intent adapter to summarize the change from cited
-   evidence. LLM output is evidence only and cannot decide the gate verdict.
-7. Run optional tool adapters and native analyzers.
-8. Normalize tool output into QGate findings, impacted surfaces, execution
-   results, and artifact records.
-9. Generate non-happy-path risks and test obligations.
-10. Render reports and calculate the gate verdict.
+The pipeline is:
+
+1. **PR intake**: read PR metadata, linked context, commits, changed files,
+   schemas, config, migrations, and tests.
+2. **Intent extraction**: state what the PR claims to change. If intent is
+   unclear for a non-empty change, mark the PR risky. Optional LLM support may
+   help summarize intent, but cannot decide the verdict.
+3. **Impact mapping**: map affected UI, forms, routes, APIs, services, data
+   stores, validators, auth policies, external providers, and tests.
+4. **Risk classification**: tag changed areas with triggers such as `form`,
+   `auth`, `api`, `data mutation`, `migration`, `PII`, `admin action`, and
+   `external API`.
+5. **Non-happy-path expansion**: expand each risk tag into required scenarios
+   for bad input, bad state, bad permissions, bad network, bad timing, bad data,
+   bad dependencies, and known vulnerability classes.
+6. **Vulnerability mapping**: map relevant risks to OWASP ASVS, WSTG, OWASP Top
+   10, and OWASP API Top 10 categories.
+7. **Test plan generation**: emit required tests, security checks, Playwright
+   flows, untestable items, and merge-blocking gaps.
+8. **Test generation**: generate candidate unit, component, integration, API,
+   Playwright, and security test scaffolds. V1 keeps this dry-run/reviewable.
+9. **Execution**: run fast checks on PRs and deeper checks in configured
+   contexts such as merge/nightly.
+10. **Evidence report and verdict**: show what changed, what could go wrong,
+   what was tested, what failed, what remains risky, and whether merge is
+   blocked.
 
 ## Artifact-First Storage
 
@@ -52,6 +65,9 @@ Core artifacts:
 
 The artifact model keeps v1 simple, scriptable, and CI-friendly.
 
+The core planning artifact is the Non-Happy-Path Matrix in `risk-matrix.json`.
+It turns a large PR into a finite set of failure modes and required checks.
+
 ## Deterministic-First Policy
 
 The default source of truth is deterministic evidence:
@@ -64,21 +80,6 @@ The default source of truth is deterministic evidence:
 
 LLMs may later improve summaries or generate test scaffolds, but they are not
 required for v1 gate decisions.
-
-## Intent Model
-
-Intent is evidence, not authority. QGate keeps three intent layers:
-
-- `declared`: PR title/body, linked issue text, branch names, and commit
-  messages.
-- `observed`: deterministic signals from changed files, code surfaces, manifests,
-  schemas, tests, and tool output.
-- `inferred`: optional LLM-generated summary from cited evidence.
-
-If declared and observed/inferred intent disagree, QGate should surface that as a
-warning or blocker depending on gate mode and risk. For example, a PR described
-as a copy change that modifies auth or API behavior should not receive a quiet
-pass.
 
 ## Tool Adapter Model
 
@@ -101,24 +102,23 @@ V1 is local/CI and OSS-first. Some tools may also offer hosted or paid features,
 but QGate should default to local/free modes unless explicitly configured
 otherwise.
 
-| Pipeline step | QGate responsibility | Default tools |
+| Pipeline step | QGate responsibility | Default OSS tools |
 | --- | --- | --- |
-| PR metadata intake | Read declared intent, refs, event payloads, and linked context when available. | `git`, GitHub Actions environment, optional `gh` |
-| Diff intake | Parse changed files, status, and scope. | `git` |
-| Project detection | Detect package manager, framework, scripts, tests, and schemas. | native manifest/file inspection, `fast-glob` |
-| Static/codebase analysis | Enrich the impact map with code intelligence. | native rules, Fallow, Semgrep |
+| PR intake | Read declared intent, refs, event payloads, commits, and changed files. | `git`, GitHub Actions environment, optional `gh` |
+| Intent extraction | Summarize the claimed behavior change and flag unclear intent. | PR metadata, commits, optional LLM adapter |
+| Impact mapping | Detect affected surfaces, package manager, framework, scripts, tests, and schemas. | native rules, `rg`, `fast-glob`, later `ast-grep`/tree-sitter |
+| Risk classification | Tag changed areas with failure-mode triggers. | QGate native rules, Fallow/Semgrep evidence |
+| Non-happy-path expansion | Convert risk tags into required failure scenarios. | QGate risk catalog |
+| Vulnerability mapping | Map risks to security categories. | OWASP ASVS, WSTG, Top 10, API Top 10 mappings |
+| Test plan generation | Emit required tests, checks, flows, gaps, and manual-review items. | QGate renderer |
+| Test generation | Generate reviewable candidate test scaffolds. | QGate generator, Playwright, Vitest/Jest, MSW, Schemathesis |
 | Secret scanning | Detect committed credentials and sensitive tokens. | Gitleaks |
 | Dependency scanning | Detect known vulnerable packages. | OSV-Scanner |
 | API/schema analysis | Detect contract changes and API failure paths when schemas exist. | oasdiff, Schemathesis |
 | Unit/component execution | Run existing automated tests. | Vitest, Jest, Testing Library |
 | UI/user-flow execution | Exercise impacted routes, forms, and interactions. | Playwright, axe-core |
 | Network/API failure simulation | Simulate error, timeout, and malformed-response paths. | MSW |
-| Risk generation | Convert impacted surfaces into non-happy-path obligations. | QGate native rules |
 | Reporting and verdict | Normalize evidence, render artifacts, and calculate pass/warn/fail. | QGate |
-
-Fallow is therefore one optional static-analysis adapter. It can enrich JS/TS
-codebase intelligence, but it does not replace native analysis, test execution,
-security scanners, or QGate's risk engine.
 
 ## Verdict Model
 
