@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { createLogger } from "../core/logger.js";
-import { writeTextArtifact } from "../core/artifacts.js";
+import { createArtifactContextFromRunDir, writeTextArtifact } from "../core/artifacts.js";
 import { renderGateReport, renderHtmlReport } from "../report/render.js";
 import { createPlan, type PlanOptions } from "./plan.js";
 
@@ -35,25 +35,8 @@ export function registerRunCommand(program: Command): void {
 export async function runCommand(options: PlanOptions) {
   const result = await createPlan(options);
   const markdown = renderGateReport(result.summary, result.intent, result.impact, result.riskMatrix);
-  await writeTextArtifact(
-    {
-      cwd: options.cwd ?? process.cwd(),
-      runId: result.runId,
-      rootDir: "",
-      runDir: result.artifactDir
-    },
-    "gate-report.md",
-    markdown
-  );
-  await writeTextArtifact(
-    {
-      cwd: options.cwd ?? process.cwd(),
-      runId: result.runId,
-      rootDir: "",
-      runDir: result.artifactDir
-    },
-    "gate-report.html",
-    renderHtmlReport(markdown)
-  );
+  const context = createArtifactContextFromRunDir(options.cwd ?? process.cwd(), result.runId, result.artifactDir);
+  await writeTextArtifact(context, "gate-report.md", markdown);
+  await writeTextArtifact(context, "gate-report.html", renderHtmlReport(markdown));
   return result;
 }

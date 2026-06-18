@@ -1,6 +1,27 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
+import { hasErrorCode } from "../core/errors.js";
 import type { ChangedFile, Surface, SurfaceKind } from "../core/types.js";
+
+const MAX_TEXT_FILE_BYTES = 200_000;
+const BINARY_EXTENSIONS = new Set([
+  ".avif",
+  ".gif",
+  ".ico",
+  ".jpeg",
+  ".jpg",
+  ".pdf",
+  ".png",
+  ".webp",
+  ".woff",
+  ".woff2",
+  ".zip"
+]);
+const CONFIDENCE_RANK: Record<Surface["confidence"], number> = {
+  low: 0,
+  medium: 1,
+  high: 2
+};
 
 export async function analyzeChangedFiles(cwd: string, changedFiles: ChangedFile[]): Promise<Surface[]> {
   const surfaces: Surface[] = [];
@@ -25,7 +46,7 @@ export function classifyFile(file: ChangedFile, content = ""): Surface[] {
     const existing = surfaces.find((surface) => surface.kind === kind && surface.path === file.path);
     if (existing) {
       existing.reasons.push(reason);
-      if (confidence === "high") existing.confidence = "high";
+      existing.confidence = higherConfidence(existing.confidence, confidence);
       return;
     }
 
@@ -65,6 +86,7 @@ function dedupeSurfaces(surfaces: Surface[]): Surface[] {
       continue;
     }
     existing.reasons.push(...surface.reasons);
+    existing.confidence = higherConfidence(existing.confidence, surface.confidence);
   }
   return [...map.values()].map((surface) => ({
     ...surface,
@@ -93,7 +115,7 @@ function isApiPath(filePath: string): boolean {
 
 function isRoutePath(filePath: string): boolean {
   return /(^|\/)app\/.*(page|layout|loading|error|not-found)\.[jt]sx?$/u.test(filePath)
-    || /(^|\/)pages\/.*\.[jt]sx?$/u.test(filePath);
+    || /(^|\/)(src\/)?pages\/(?!api\/).*\.[jt]sx?$/u.test(filePath);
 }
 
 function isComponentPath(filePath: string): boolean {
@@ -126,9 +148,33 @@ function containsValidationSignal(filePath: string, content: string): boolean {
 
 async function readFileIfText(filePath: string): Promise<string> {
   try {
-    const content = await readFile(filePath, "utf8");
-    return content.length > 200_000 ? content.slice(0, 200_000) : content;
-  } catch {
-    return "";
+    if (BINARY_EXTENSIONS.has(path.extname(filePath).toLowerCase())) {
+      return "";
+    }
+
+    const metadata = await stat(filePath);
+    if (metadata.size > MAX_TEXT_FILE_BYTES) {
+      return "";
+    }
+
+    const buffer = await readFile(filePath);
+    if (isLikelyBinary(buffer)) {
+      return "";
+    }
+    return buffer.toString("utf8");
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT") || hasErrorCode(error, "EISDIR")) {
+      return "";
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read changed file ${filePath}: ${message}`, { cause: error });
   }
+}
+
+function isLikelyBinary(buffer: Buffer): boolean {
+  return buffer.includes(0);
+}
+
+function higherConfidence(left: Surface["confidence"], right: Surface["confidence"]): Surface["confidence"] {
+  return CONFIDENCE_RANK[right] > CONFIDENCE_RANK[left] ? right : left;
 }

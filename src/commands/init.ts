@@ -98,13 +98,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec qgate run --base origin/\${{ github.base_ref }} --head HEAD
 `;

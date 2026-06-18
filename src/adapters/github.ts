@@ -1,7 +1,14 @@
 import { readFile } from "node:fs/promises";
 import type { GitHubContext } from "../core/types.js";
 
-export async function readGitHubContext(env = process.env): Promise<GitHubContext | undefined> {
+export interface GitHubContextOptions {
+  warn?: (message: string) => void;
+}
+
+export async function readGitHubContext(
+  env = process.env,
+  options: GitHubContextOptions = {}
+): Promise<GitHubContext | undefined> {
   if (!env.GITHUB_ACTIONS) {
     return undefined;
   }
@@ -34,7 +41,9 @@ export async function readGitHubContext(env = process.env): Promise<GitHubContex
           headRef: event.pull_request.head?.ref
         };
       }
-    } catch {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      options.warn?.(`Failed to read GitHub event file ${env.GITHUB_EVENT_PATH}: ${message}`);
       return context;
     }
   }
