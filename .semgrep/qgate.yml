@@ -1,0 +1,27 @@
+rules:
+  - id: qgate-no-shell-exec
+    message: Pass commands and arguments separately. Do not enable shell execution in QGate analyzers or runners.
+    languages:
+      - typescript
+      - javascript
+    severity: ERROR
+    patterns:
+      - pattern: execa($CMD, $ARGS, { ..., shell: true, ... })
+
+  - id: qgate-no-process-exit
+    message: Use process.exitCode at CLI boundaries so library functions remain testable.
+    languages:
+      - typescript
+      - javascript
+    severity: WARNING
+    pattern: process.exit($CODE)
+
+  - id: qgate-no-dynamic-code-execution
+    message: Dynamic code execution would make QGate harder to reason about deterministically.
+    languages:
+      - typescript
+      - javascript
+    severity: ERROR
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)

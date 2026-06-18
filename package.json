@@ -1,0 +1,42 @@
+{
+  "name": "qgate",
+  "version": "0.1.0",
+  "description": "Deterministic PR quality gate for AI-generated code in Next.js and React projects.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "bin": {
+    "qgate": "./dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/cli.js",
+    "./config": "./dist/core/config.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup src/cli.ts src/core/config.ts --format esm --dts --clean",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "test:mutation": "stryker run",
+    "typecheck": "tsc --noEmit",
+    "verify": "pnpm typecheck && pnpm test && pnpm build"
+  },
+  "dependencies": {
+    "commander": "^14.0.2",
+    "execa": "^9.6.0",
+    "fast-glob": "^3.3.3",
+    "picocolors": "^1.1.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@stryker-mutator/core": "^9.6.1",
+    "@stryker-mutator/vitest-runner": "^9.6.1",
+    "@types/node": "^24.10.1",
+    "tsup": "^8.5.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}
