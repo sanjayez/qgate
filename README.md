@@ -31,3 +31,10 @@ qgate report latest
 Fallow is optional. When installed in a JS/TS project, `qgate` runs
 `fallow audit --format json --quiet` and folds its deterministic codebase
 intelligence into the gate report.
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
+- [Quality model](docs/quality.md)
+- [V1 specification](docs/v1-spec.md)
