@@ -3,7 +3,6 @@ import path from "node:path";
 import { hasErrorCode } from "../core/errors.js";
 import type { ChangedFile, Surface, SurfaceKind } from "../core/types.js";
 
-const MAX_TEXT_FILE_CHARS = 200_000;
 const MAX_TEXT_FILE_BYTES = 200_000;
 const BINARY_EXTENSIONS = new Set([
   ".avif",
@@ -162,8 +161,7 @@ async function readFileIfText(filePath: string): Promise<string> {
     if (isLikelyBinary(buffer)) {
       return "";
     }
-    const content = buffer.toString("utf8");
-    return content.length > MAX_TEXT_FILE_CHARS ? content.slice(0, MAX_TEXT_FILE_CHARS) : content;
+    return buffer.toString("utf8");
   } catch (error) {
     if (hasErrorCode(error, "ENOENT") || hasErrorCode(error, "EISDIR")) {
       return "";
