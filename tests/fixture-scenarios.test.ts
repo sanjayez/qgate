@@ -1,6 +1,8 @@
+import { writeFile } from "node:fs/promises";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { readJsonArtifact } from "../src/core/artifacts.js";
-import type { Intent, RiskMatrix, Summary } from "../src/core/types.js";
+import { JSON_ARTIFACT_NAMES } from "../src/core/schemas.js";
 import { createPlan } from "../src/commands/plan.js";
 import { createFixtureRepo } from "./fixture-repo.js";
 
@@ -11,8 +13,8 @@ describe("golden fixture repos", () => {
 
     expect(result.impact.surfaces.some((surface) => surface.kind === "form")).toBe(true);
     expect(result.riskMatrix.risks.some((risk) => risk.id.startsWith("FORM-"))).toBe(true);
-    await expect(readJsonArtifact<Intent>(result.artifactDir, "intent.json")).resolves.toMatchObject({ source: "git-diff" });
-    await expect(readJsonArtifact<RiskMatrix>(result.artifactDir, "risk-matrix.json")).resolves.toMatchObject({
+    await expect(readJsonArtifact(result.artifactDir, JSON_ARTIFACT_NAMES.intent)).resolves.toMatchObject({ source: "git-diff" });
+    await expect(readJsonArtifact(result.artifactDir, JSON_ARTIFACT_NAMES.riskMatrix)).resolves.toMatchObject({
       counts: expect.objectContaining({ critical: expect.any(Number) })
     });
   });
@@ -34,6 +36,44 @@ describe("golden fixture repos", () => {
       expect.objectContaining({ kind: "unknown", confidence: "low" })
     ]);
     expect(result.summary.verdict).toBe("warn");
-    await expect(readJsonArtifact<Summary>(result.artifactDir, "summary.json")).resolves.toMatchObject({ verdict: "warn" });
+    await expect(readJsonArtifact(result.artifactDir, JSON_ARTIFACT_NAMES.summary)).resolves.toMatchObject({ verdict: "warn" });
+  });
+
+  it("uses explicit env values for GitHub PR intent", async () => {
+    const repo = await createFixtureRepo("form-pr");
+    const eventPath = path.join(repo.cwd, "event.json");
+    await writeFile(
+      eventPath,
+      JSON.stringify({
+        pull_request: {
+          number: 12,
+          title: "Add contact form",
+          body: "Covers the lead capture flow.",
+          html_url: "https://example.test/pull/12",
+          base: { ref: "main" },
+          head: { ref: "feature/form" }
+        }
+      }),
+      "utf8"
+    );
+
+    const result = await createPlan({
+      cwd: repo.cwd,
+      base: repo.base,
+      head: repo.head,
+      runId: "fixture-github-env",
+      env: {
+        GITHUB_ACTIONS: "true",
+        GITHUB_EVENT_NAME: "pull_request",
+        GITHUB_EVENT_PATH: eventPath,
+        GITHUB_REPOSITORY: "owner/repo"
+      }
+    });
+
+    expect(result.intent).toMatchObject({
+      source: "github-pr",
+      confidence: "high",
+      summary: "Add contact form - Covers the lead capture flow."
+    });
   });
 });

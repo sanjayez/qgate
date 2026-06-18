@@ -49,6 +49,7 @@ export function buildSummary(input: {
   runId: string;
   artifactDir: string;
   mode: GateMode;
+  generatedAt?: string;
   intent: Intent;
   changedFileCount: number;
   riskMatrix: RiskMatrix;
@@ -61,7 +62,7 @@ export function buildSummary(input: {
     runId: input.runId,
     verdict,
     mode: input.mode,
-    generatedAt: new Date().toISOString(),
+    generatedAt: input.generatedAt ?? generatedAtFromRunId(input.runId),
     artifactDir: input.artifactDir,
     criticalCount: input.riskMatrix.counts.critical,
     warningCount: input.riskMatrix.counts.warning,
@@ -70,9 +71,20 @@ export function buildSummary(input: {
   };
 }
 
+function generatedAtFromRunId(runId: string): string {
+  const timestamp = /^(?<date>\d{4}-\d{2}-\d{2})T(?<hour>\d{2})-(?<minute>\d{2})-(?<second>\d{2})-(?<millisecond>\d{3})Z$/u.exec(runId);
+  if (timestamp?.groups) {
+    return `${timestamp.groups.date}T${timestamp.groups.hour}:${timestamp.groups.minute}:${timestamp.groups.second}.${timestamp.groups.millisecond}Z`;
+  }
+
+  return "1970-01-01T00:00:00.000Z";
+}
+
 function collectBlockers(input: {
+  mode: GateMode;
   intent: Intent;
   changedFileCount: number;
+  riskMatrix: RiskMatrix;
   fallow: FallowResult;
 }): GateBlocker[] {
   const blockers: GateBlocker[] = [];
@@ -84,6 +96,20 @@ function collectBlockers(input: {
       source: "intent",
       title: "PR intent could not be inferred",
       message: "Add a clear PR title/body or run qgate with richer PR metadata."
+    });
+  }
+
+  const criticalCatalogRiskCount = input.riskMatrix.risks.filter(
+    (risk) => risk.severity === "critical" && !risk.id.startsWith("FALLOW-")
+  ).length;
+
+  if (input.mode !== "report-only" && criticalCatalogRiskCount > 0) {
+    blockers.push({
+      id: "RISK-CRITICAL-001",
+      severity: "critical",
+      source: "risk-matrix",
+      title: "Critical risk obligations require evidence",
+      message: `${criticalCatalogRiskCount} critical risk(s) must be covered by required checks before merge.`
     });
   }
 

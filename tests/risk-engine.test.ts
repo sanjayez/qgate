@@ -74,4 +74,83 @@ describe("risk engine", () => {
     expect(summary.verdict).toBe("fail");
     expect(summary.blockers[0]?.id).toBe("FALLOW-001");
   });
+
+  it("fails critical-blocks mode when critical risk obligations exist", () => {
+    const intent: Intent = {
+      summary: "Update form",
+      source: "git-diff",
+      confidence: "medium"
+    };
+    const matrix = buildRiskMatrix([
+      {
+        kind: "form",
+        path: "src/components/LeadForm.tsx",
+        confidence: "high",
+        reasons: ["form detected"]
+      }
+    ], noFallow);
+
+    const summary = buildSummary({
+      runId: "run",
+      artifactDir: "/tmp/run",
+      mode: "critical-blocks",
+      intent,
+      changedFileCount: 1,
+      riskMatrix: matrix,
+      fallow: noFallow
+    });
+
+    expect(summary.verdict).toBe("fail");
+    expect(summary.blockers.map((blocker) => blocker.id)).toContain("RISK-CRITICAL-001");
+  });
+
+  it("keeps report-only mode non-blocking for critical risks", () => {
+    const intent: Intent = {
+      summary: "Update form",
+      source: "git-diff",
+      confidence: "medium"
+    };
+    const matrix = buildRiskMatrix([
+      {
+        kind: "form",
+        path: "src/components/LeadForm.tsx",
+        confidence: "high",
+        reasons: ["form detected"]
+      }
+    ], noFallow);
+
+    const summary = buildSummary({
+      runId: "run",
+      artifactDir: "/tmp/run",
+      mode: "report-only",
+      intent,
+      changedFileCount: 1,
+      riskMatrix: matrix,
+      fallow: noFallow
+    });
+
+    expect(summary.verdict).toBe("warn");
+    expect(summary.blockers).toEqual([]);
+  });
+
+  it("derives generatedAt deterministically from timestamp-shaped run ids", () => {
+    const intent: Intent = {
+      summary: "No changed files detected",
+      source: "unknown",
+      confidence: "low"
+    };
+    const matrix = buildRiskMatrix([], noFallow);
+    const input = {
+      runId: "2026-06-18T12-34-56-789Z",
+      artifactDir: "/tmp/run",
+      mode: "report-only" as const,
+      intent,
+      changedFileCount: 0,
+      riskMatrix: matrix,
+      fallow: noFallow
+    };
+
+    expect(buildSummary(input)).toEqual(buildSummary(input));
+    expect(buildSummary(input).generatedAt).toBe("2026-06-18T12:34:56.789Z");
+  });
 });

@@ -2,7 +2,8 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createArtifactContext, readJsonArtifact, writeJsonArtifact } from "../src/core/artifacts.js";
+import { createArtifactContext, readJsonArtifact, resolveRunDir, writeJsonArtifact } from "../src/core/artifacts.js";
+import { JSON_ARTIFACT_NAMES } from "../src/core/schemas.js";
 import type { Intent } from "../src/core/types.js";
 
 describe("artifact safety and validation", () => {
@@ -10,7 +11,7 @@ describe("artifact safety and validation", () => {
     const cwd = await mkdtemp(path.join(os.tmpdir(), "qgate-artifacts-"));
     const context = await createArtifactContext(cwd, "schema-valid");
 
-    await expect(writeJsonArtifact(context, "intent.json", { summary: "", source: "unknown", confidence: "low" }))
+    await expect(writeJsonArtifact(context, JSON_ARTIFACT_NAMES.intent, { summary: "", source: "unknown", confidence: "low" }))
       .rejects
       .toThrow();
   });
@@ -24,9 +25,9 @@ describe("artifact safety and validation", () => {
       confidence: "medium"
     };
 
-    const filePath = await writeJsonArtifact(context, "intent.json", intent);
+    const filePath = await writeJsonArtifact(context, JSON_ARTIFACT_NAMES.intent, intent);
     const written = JSON.parse(await readFile(filePath, "utf8")) as Intent;
-    const read = await readJsonArtifact<Intent>(context.runDir, "intent.json");
+    const read = await readJsonArtifact(context.runDir, JSON_ARTIFACT_NAMES.intent);
 
     expect(written).toEqual(intent);
     expect(read).toEqual(intent);
@@ -39,5 +40,18 @@ describe("artifact safety and validation", () => {
 
     const context = await createArtifactContext(cwd, "safe-run");
     await expect(writeJsonArtifact(context, "../escape.json", { ok: true })).rejects.toThrow("Unsafe qgate artifact name");
+  });
+
+  it("rejects JSON artifacts without an explicit schema", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "qgate-artifacts-"));
+    const context = await createArtifactContext(cwd, "schema-unknown");
+
+    await expect(writeJsonArtifact(context, "unknown.json", { ok: true })).rejects.toThrow("No schema registered");
+  });
+
+  it("reports a controlled error when latest run does not exist", async () => {
+    const cwd = await mkdtemp(path.join(os.tmpdir(), "qgate-artifacts-"));
+
+    await expect(resolveRunDir(cwd, "latest")).rejects.toThrow("No qgate runs found");
   });
 });

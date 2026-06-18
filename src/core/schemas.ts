@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ImpactMap, Intent, RiskMatrix, Summary } from "./types.js";
 
 const SeveritySchema = z.enum(["critical", "warning", "info"]);
 const VerdictSchema = z.enum(["pass", "warn", "fail"]);
@@ -144,14 +145,35 @@ export const SummarySchema = z.object({
   blockers: z.array(GateBlockerSchema)
 });
 
-const JsonArtifactSchemas = {
-  "intent.json": IntentSchema,
-  "impact-map.json": ImpactMapSchema,
-  "risk-matrix.json": RiskMatrixSchema,
-  "summary.json": SummarySchema
-} satisfies Record<string, z.ZodType<unknown>>;
+export const JSON_ARTIFACT_NAMES = {
+  intent: "intent.json",
+  impactMap: "impact-map.json",
+  riskMatrix: "risk-matrix.json",
+  summary: "summary.json"
+} as const;
 
+export type JsonArtifactName = typeof JSON_ARTIFACT_NAMES[keyof typeof JSON_ARTIFACT_NAMES];
+
+export interface JsonArtifactMap {
+  [JSON_ARTIFACT_NAMES.intent]: Intent;
+  [JSON_ARTIFACT_NAMES.impactMap]: ImpactMap;
+  [JSON_ARTIFACT_NAMES.riskMatrix]: RiskMatrix;
+  [JSON_ARTIFACT_NAMES.summary]: Summary;
+}
+
+const JsonArtifactSchemas = {
+  [JSON_ARTIFACT_NAMES.intent]: IntentSchema,
+  [JSON_ARTIFACT_NAMES.impactMap]: ImpactMapSchema,
+  [JSON_ARTIFACT_NAMES.riskMatrix]: RiskMatrixSchema,
+  [JSON_ARTIFACT_NAMES.summary]: SummarySchema
+} satisfies { [Name in JsonArtifactName]: z.ZodType<JsonArtifactMap[Name]> };
+
+export function validateJsonArtifact<Name extends JsonArtifactName>(name: Name, value: unknown): JsonArtifactMap[Name];
+export function validateJsonArtifact(name: string, value: unknown): unknown;
 export function validateJsonArtifact(name: string, value: unknown): unknown {
   const schema = JsonArtifactSchemas[name as keyof typeof JsonArtifactSchemas];
-  return schema ? schema.parse(value) : value;
+  if (!schema) {
+    throw new Error(`No schema registered for JSON artifact: ${name}`);
+  }
+  return schema.parse(value);
 }

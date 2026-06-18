@@ -8,4 +8,14 @@ describe("cli", () => {
 
     expect(commands).toEqual(expect.arrayContaining(["init", "plan", "run", "report"]));
   });
+
+  it("leaves plan git ref defaults to createPlan", () => {
+    const program = createProgram();
+    const plan = program.commands.find((command) => command.name() === "plan");
+    const base = plan?.options.find((option) => option.long === "--base");
+    const head = plan?.options.find((option) => option.long === "--head");
+
+    expect(base?.defaultValue).toBeUndefined();
+    expect(head?.defaultValue).toBeUndefined();
+  });
 });

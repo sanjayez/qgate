@@ -56,9 +56,12 @@ describe("report renderer", () => {
       blockers: []
     };
 
-    expect(renderTestPlan(intent, impact, riskMatrix)).toContain("FORM-001");
+    const testPlan = renderTestPlan(intent, impact, riskMatrix);
+    expect(testPlan).toContain("FORM-001");
+    expect(renderHtmlReport(testPlan)).toContain('<li class="indent-1">duplicate submit does not create duplicate side effects</li>');
     const report = renderGateReport(summary, intent, impact, riskMatrix);
     expect(report).toContain("qgate Gate Report");
     expect(renderHtmlReport(report)).toContain("<h1>qgate Gate Report</h1>");
+    expect(renderHtmlReport(report)).toContain("<ul>");
   });
 });

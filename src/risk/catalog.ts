@@ -1,4 +1,4 @@
-import type { RequiredCheck, RiskItem, Severity, SurfaceKind } from "../core/types.js";
+import type { RequiredCheck, Severity, SurfaceKind } from "../core/types.js";
 
 export interface RiskTemplate {
   title: string;

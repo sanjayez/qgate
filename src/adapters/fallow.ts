@@ -51,7 +51,12 @@ export async function runFallowAudit(cwd: string, enabled: boolean): Promise<Fal
 function normalizeFallowOutput(raw: unknown): FallowResult {
   const record = asRecord(raw);
   const verdict = normalizeVerdict(
-    record.verdict ?? record.status ?? asRecord(record.summary).verdict ?? asRecord(record.audit).verdict
+    firstPresentValue(
+      record.verdict,
+      record.status,
+      asRecord(record.summary).verdict,
+      asRecord(record.audit).verdict
+    )
   );
 
   return {
@@ -111,6 +116,14 @@ function normalizeSeverity(value: unknown): Severity {
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function firstPresentValue(...values: unknown[]): unknown {
+  return values.find(
+    (value) => value !== null
+      && value !== undefined
+      && (typeof value !== "string" || value.trim().length > 0)
+  );
 }
 
 async function exists(filePath: string): Promise<boolean> {

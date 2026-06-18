@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { validateJsonArtifact } from "./schemas.js";
+import { hasErrorCode } from "./errors.js";
+import { validateJsonArtifact, type JsonArtifactMap, type JsonArtifactName } from "./schemas.js";
 
 export interface ArtifactContext {
   cwd: string;
@@ -25,6 +26,14 @@ export async function createArtifactContext(
   return { cwd, runId, rootDir, runDir };
 }
 
+export function createArtifactContextFromRunDir(cwd: string, runId: string, runDir: string): ArtifactContext {
+  assertSafeRunId(runId);
+  const rootDir = path.resolve(cwd, ".qgate", "runs");
+  const resolvedRunDir = path.resolve(runDir);
+  assertInsideDirectory(rootDir, resolvedRunDir);
+  return { cwd, runId, rootDir, runDir: resolvedRunDir };
+}
+
 export async function writeJsonArtifact(
   context: ArtifactContext,
   name: string,
@@ -46,10 +55,15 @@ export async function writeTextArtifact(
   return filePath;
 }
 
-export async function readJsonArtifact<T>(runDir: string, name: string): Promise<T> {
-  const filePath = resolveArtifactFile({ cwd: "", runId: "", rootDir: "", runDir }, name);
+export async function readJsonArtifact<Name extends JsonArtifactName>(
+  runDir: string,
+  name: Name
+): Promise<JsonArtifactMap[Name]>;
+export async function readJsonArtifact(runDir: string, name: string): Promise<unknown>;
+export async function readJsonArtifact(runDir: string, name: string): Promise<unknown> {
+  const filePath = resolveArtifactFileInRunDir(runDir, name);
   const parsed = JSON.parse(await readFile(filePath, "utf8")) as unknown;
-  return validateJsonArtifact(name, parsed) as T;
+  return validateJsonArtifact(name, parsed);
 }
 
 export async function resolveRunDir(cwd: string, runId: string): Promise<string> {
@@ -61,7 +75,15 @@ export async function resolveRunDir(cwd: string, runId: string): Promise<string>
     return runDir;
   }
 
-  const entries = await readdir(rootDir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await readdir(rootDir, { withFileTypes: true });
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT")) {
+      throw new Error("No qgate runs found", { cause: error });
+    }
+    throw error;
+  }
   const latest = entries
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
@@ -76,10 +98,14 @@ export async function resolveRunDir(cwd: string, runId: string): Promise<string>
 }
 
 function resolveArtifactFile(context: ArtifactContext, name: string): string {
+  return resolveArtifactFileInRunDir(context.runDir, name);
+}
+
+function resolveArtifactFileInRunDir(runDir: string, name: string): string {
   assertSafeArtifactName(name);
-  const runDir = path.resolve(context.runDir);
-  const filePath = path.resolve(runDir, name);
-  assertInsideDirectory(runDir, filePath);
+  const resolvedRunDir = path.resolve(runDir);
+  const filePath = path.resolve(resolvedRunDir, name);
+  assertInsideDirectory(resolvedRunDir, filePath);
   return filePath;
 }
 

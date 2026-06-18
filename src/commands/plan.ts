@@ -7,6 +7,7 @@ import { detectProject } from "../adapters/project.js";
 import { createArtifactContext, writeJsonArtifact, writeTextArtifact } from "../core/artifacts.js";
 import { loadConfig } from "../core/config.js";
 import { createLogger } from "../core/logger.js";
+import { JSON_ARTIFACT_NAMES } from "../core/schemas.js";
 import type { ImpactMap, Intent, QGateConfig, RiskMatrix, Summary } from "../core/types.js";
 import { buildRiskMatrix, buildSummary } from "../risk/engine.js";
 import { renderTestPlan } from "../report/render.js";
@@ -14,6 +15,7 @@ import { renderTestPlan } from "../report/render.js";
 export interface PlanOptions {
   cwd?: string;
   base?: string;
+  env?: NodeJS.ProcessEnv;
   head?: string;
   runId?: string;
   quiet?: boolean;
@@ -29,18 +31,21 @@ export interface PlanResult {
   summary: Summary;
 }
 
+const FALLBACK_BASE_REF = "origin/main";
+const FALLBACK_HEAD_REF = "HEAD";
+
 export function registerPlanCommand(program: Command): void {
   program
     .command("plan")
     .description("Generate intent, impact map, risk matrix, and test plan artifacts")
-    .option("--base <ref>", "base git ref", process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : "origin/main")
-    .option("--head <ref>", "head git ref", process.env.GITHUB_SHA ?? "HEAD")
+    .option("--base <ref>", "base git ref")
+    .option("--head <ref>", "head git ref")
     .option("--run-id <id>", "override generated run id")
     .option("--quiet", "reduce command output")
     .action(async (options: PlanOptions) => {
       const logger = createLogger(Boolean(options.quiet));
       try {
-        const result = await createPlan({ ...options, cwd: process.cwd() });
+        const result = await createPlan({ ...options, cwd: process.cwd(), env: process.env });
         logger.success(`qgate plan written to ${result.artifactDir}`);
       } catch (error) {
         logger.error(error instanceof Error ? error.message : String(error));
@@ -51,16 +56,18 @@ export function registerPlanCommand(program: Command): void {
 
 export async function createPlan(options: PlanOptions): Promise<PlanResult> {
   const cwd = options.cwd ?? process.cwd();
-  const base = options.base ?? "origin/main";
-  const head = options.head ?? "HEAD";
+  const env = options.env ?? process.env;
+  const base = options.base ?? defaultBaseRef(env);
+  const head = options.head ?? defaultHeadRef(env);
 
   if (!(await isGitRepository(cwd))) {
     throw new Error("qgate plan must run inside a git repository");
   }
 
   const { config } = await loadConfig(cwd);
+  const logger = createLogger(Boolean(options.quiet));
   const artifactContext = await createArtifactContext(cwd, options.runId);
-  const github = await readGitHubContext();
+  const github = await readGitHubContext(env, { warn: (message) => logger.warn(message) });
   const changedFiles = await getChangedFiles(cwd, base, head);
   const project = await detectProject(cwd);
   const surfaces = await analyzeChangedFiles(cwd, changedFiles);
@@ -78,11 +85,11 @@ export async function createPlan(options: PlanOptions): Promise<PlanResult> {
     fallow
   });
 
-  await writeJsonArtifact(artifactContext, "intent.json", intent);
-  await writeJsonArtifact(artifactContext, "impact-map.json", impact);
-  await writeJsonArtifact(artifactContext, "risk-matrix.json", riskMatrix);
+  await writeJsonArtifact(artifactContext, JSON_ARTIFACT_NAMES.intent, intent);
+  await writeJsonArtifact(artifactContext, JSON_ARTIFACT_NAMES.impactMap, impact);
+  await writeJsonArtifact(artifactContext, JSON_ARTIFACT_NAMES.riskMatrix, riskMatrix);
   await writeTextArtifact(artifactContext, "test-plan.md", renderTestPlan(intent, impact, riskMatrix));
-  await writeJsonArtifact(artifactContext, "summary.json", summary);
+  await writeJsonArtifact(artifactContext, JSON_ARTIFACT_NAMES.summary, summary);
 
   return {
     runId: artifactContext.runId,
@@ -95,13 +102,21 @@ export async function createPlan(options: PlanOptions): Promise<PlanResult> {
   };
 }
 
+export function defaultBaseRef(env = process.env): string {
+  return env.GITHUB_BASE_REF ? `origin/${env.GITHUB_BASE_REF}` : FALLBACK_BASE_REF;
+}
+
+export function defaultHeadRef(env = process.env): string {
+  return env.GITHUB_SHA ?? FALLBACK_HEAD_REF;
+}
+
 function inferIntent(github: ImpactMap["github"], changedFiles: ImpactMap["changedFiles"]): Intent {
   const title = github?.pullRequest?.title?.trim();
   const body = github?.pullRequest?.body?.trim();
 
   if (title) {
     return {
-      summary: body ? `${title} - ${firstSentence(body)}` : title,
+      summary: body ? `${title} - ${firstNonEmptyLine(body)}` : title,
       source: "github-pr",
       confidence: "high"
     };
@@ -124,6 +139,6 @@ function inferIntent(github: ImpactMap["github"], changedFiles: ImpactMap["chang
   };
 }
 
-function firstSentence(value: string): string {
+function firstNonEmptyLine(value: string): string {
   return value.split(/\r?\n/u).find((line) => line.trim().length > 0)?.trim() ?? "";
 }

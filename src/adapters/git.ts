@@ -15,9 +15,43 @@ export async function getChangedFiles(
   base: string,
   head: string
 ): Promise<ChangedFile[]> {
+  validateGitRef(base, "base");
+  validateGitRef(head, "head");
   const range = `${base}...${head}`;
-  const { stdout } = await execa("git", ["diff", "--name-status", range], { cwd });
-  return parseNameStatus(stdout);
+  try {
+    const { stdout } = await execa("git", ["diff", "--name-status", range, "--"], { cwd });
+    return parseNameStatus(stdout);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read git diff for ${base}...${head}: ${message}`, { cause: error });
+  }
+}
+
+export function validateGitRef(ref: string, label: string): void {
+  const trimmed = ref.trim();
+  if (!trimmed) {
+    throw new Error(`Invalid ${label} git ref: ref cannot be empty`);
+  }
+
+  if (trimmed !== ref) {
+    throw new Error(`Invalid ${label} git ref: refs cannot contain leading or trailing whitespace`);
+  }
+
+  if (ref.startsWith("-")) {
+    throw new Error(`Invalid ${label} git ref: refs cannot start with '-'`);
+  }
+
+  if (/[\s\u0000-\u001f\u007f]/u.test(ref)) {
+    throw new Error(`Invalid ${label} git ref: refs cannot contain whitespace or control characters`);
+  }
+
+  if (/[`$;&|<>(){}[\]]/u.test(ref)) {
+    throw new Error(`Invalid ${label} git ref: refs cannot contain shell metacharacters`);
+  }
+
+  if (ref.includes("..") || ref.includes("@{")) {
+    throw new Error(`Invalid ${label} git ref: refs cannot contain ambiguous revision syntax`);
+  }
 }
 
 export function parseNameStatus(stdout: string): ChangedFile[] {

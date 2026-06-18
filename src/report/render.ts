@@ -1,5 +1,7 @@
 import type { ImpactMap, Intent, RiskMatrix, Summary } from "../core/types.js";
 
+const MAX_TOP_RISKS = 20;
+
 export function renderTestPlan(intent: Intent, impact: ImpactMap, riskMatrix: RiskMatrix): string {
   const lines: string[] = [
     "# qgate Test Plan",
@@ -90,7 +92,7 @@ export function renderGateReport(summary: Summary, intent: Intent, impact: Impac
   lines.push(`- Fallow: ${impact.fallow.available ? `available (${impact.fallow.verdict ?? "unknown"})` : `skipped (${impact.fallow.skippedReason ?? "unavailable"})`}`);
 
   lines.push("", "## Top Risks", "");
-  for (const risk of riskMatrix.risks.slice(0, 20)) {
+  for (const risk of riskMatrix.risks.slice(0, MAX_TOP_RISKS)) {
     lines.push(`- ${risk.id} [${risk.severity}] ${risk.title} (${risk.sourcePaths.join(", ") || "n/a"})`);
   }
   if (riskMatrix.risks.length === 0) {
@@ -101,10 +103,7 @@ export function renderGateReport(summary: Summary, intent: Intent, impact: Impac
 }
 
 export function renderHtmlReport(markdown: string): string {
-  const body = markdown
-    .split(/\r?\n/u)
-    .map((line) => renderMarkdownLine(line))
-    .join("\n");
+  const body = renderMarkdownBlocks(markdown);
 
   return [
     "<!doctype html>",
@@ -119,6 +118,7 @@ export function renderHtmlReport(markdown: string): string {
     "pre{background:#f8fafc;padding:16px;border-radius:8px;overflow:auto}",
     "h1,h2,h3{line-height:1.2}",
     "li{margin:4px 0}",
+    ".indent-1{margin-left:1.25rem}.indent-2{margin-left:2.5rem}",
     "</style>",
     "</head>",
     "<body>",
@@ -128,11 +128,42 @@ export function renderHtmlReport(markdown: string): string {
   ].join("\n");
 }
 
+function renderMarkdownBlocks(markdown: string): string {
+  const html: string[] = [];
+  let inList = false;
+
+  for (const line of markdown.split(/\r?\n/u)) {
+    const listItem = /^(\s*)-\s+(.*)$/u.exec(line);
+    if (listItem) {
+      if (!inList) {
+        html.push("<ul>");
+        inList = true;
+      }
+      const indent = Math.min(Math.floor((listItem[1] ?? "").length / 2), 2);
+      const className = indent > 0 ? ` class="indent-${indent}"` : "";
+      html.push(`<li${className}>${renderInline(listItem[2] ?? "")}</li>`);
+      continue;
+    }
+
+    if (inList) {
+      html.push("</ul>");
+      inList = false;
+    }
+
+    html.push(renderMarkdownLine(line));
+  }
+
+  if (inList) {
+    html.push("</ul>");
+  }
+
+  return html.join("\n");
+}
+
 function renderMarkdownLine(line: string): string {
   if (line.startsWith("### ")) return `<h3>${escapeHtml(line.slice(4))}</h3>`;
   if (line.startsWith("## ")) return `<h2>${escapeHtml(line.slice(3))}</h2>`;
   if (line.startsWith("# ")) return `<h1>${escapeHtml(line.slice(2))}</h1>`;
-  if (line.startsWith("- ")) return `<li>${renderInline(line.slice(2))}</li>`;
   if (line.trim() === "") return "";
   return `<p>${renderInline(line)}</p>`;
 }

@@ -6,7 +6,7 @@ import type { QGateConfig } from "./types.js";
 
 const ToolSchema = z.object({
   enabled: z.boolean().default(true)
-});
+}).strict();
 
 const ConfigSchema = z.object({
   project: z.enum(["auto", "next-react"]).optional(),
@@ -21,6 +21,7 @@ const ConfigSchema = z.object({
       schemathesis: ToolSchema.optional(),
       oasdiff: ToolSchema.optional()
     })
+    .strict()
     .optional(),
   reports: z
     .object({
@@ -28,8 +29,9 @@ const ConfigSchema = z.object({
       html: z.boolean().optional(),
       json: z.boolean().optional()
     })
+    .strict()
     .optional()
-});
+}).strict();
 
 export function defineConfig(config: Partial<QGateConfig>): Partial<QGateConfig> {
   return config;
@@ -75,11 +77,16 @@ export async function loadConfig(cwd = process.cwd()): Promise<LoadedConfig> {
       continue;
     }
 
-    const raw = await readConfigFile(filePath);
-    return {
-      config: normalizeConfig(raw),
-      path: filePath
-    };
+    try {
+      const raw = await readConfigFile(filePath);
+      return {
+        config: normalizeConfig(raw),
+        path: filePath
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to load qgate config ${filePath}: ${message}`, { cause: error });
+    }
   }
 
   return { config: defaultConfig() };
@@ -101,19 +108,158 @@ async function readConfigFile(filePath: string): Promise<unknown> {
 }
 
 function extractDefineConfigPayload(source: string): string {
-  const marker = "defineConfig(";
-  const start = source.indexOf(marker);
-  if (start === -1) {
-    throw new Error("qgate.config.ts must export default defineConfig({...})");
+  const openParen = findDefineConfigOpenParen(source);
+  const payloadEnd = findMatchingParen(source, openParen);
+  return source.slice(openParen + 1, payloadEnd).trim().replace(/,\s*$/u, "");
+}
+
+function findDefineConfigOpenParen(source: string): number {
+  const marker = "defineConfig";
+  let quote: "'" | "\"" | "`" | undefined;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let index = 0; index < source.length; index += 1) {
+    const char = source[index] ?? "";
+    const next = source[index + 1] ?? "";
+
+    if (lineComment) {
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+
+    if (blockComment) {
+      if (char === "*" && next === "/") {
+        blockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "/" && next === "*") {
+      blockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "'" || char === "\"" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (!source.startsWith(marker, index) || isIdentifierChar(source[index - 1]) || isIdentifierChar(source[index + marker.length])) {
+      continue;
+    }
+
+    let openParen = index + marker.length;
+    while (/\s/u.test(source[openParen] ?? "")) {
+      openParen += 1;
+    }
+
+    if (source[openParen] === "(") {
+      return openParen;
+    }
   }
 
-  const payloadStart = start + marker.length;
-  const payloadEnd = source.lastIndexOf(")");
-  if (payloadEnd <= payloadStart) {
-    throw new Error("Could not parse qgate.config.ts defineConfig payload");
+  throw new Error("qgate.config.ts must export default defineConfig({...})");
+}
+
+function findMatchingParen(source: string, openParen: number): number {
+  let depth = 0;
+  let quote: "'" | "\"" | "`" | undefined;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let index = openParen; index < source.length; index += 1) {
+    const char = source[index] ?? "";
+    const next = source[index + 1] ?? "";
+
+    if (lineComment) {
+      if (char === "\n") lineComment = false;
+      continue;
+    }
+
+    if (blockComment) {
+      if (char === "*" && next === "/") {
+        blockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) {
+        quote = undefined;
+      }
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "/" && next === "*") {
+      blockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "'" || char === "\"" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (char === "(") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
   }
 
-  return source.slice(payloadStart, payloadEnd).trim().replace(/,\s*$/u, "");
+  throw new Error("Could not parse qgate.config.ts defineConfig payload");
+}
+
+function isIdentifierChar(char: string | undefined): boolean {
+  return typeof char === "string" && /[$A-Z_a-z0-9]/u.test(char);
 }
 
 function pathToFileUrl(filePath: string): string {

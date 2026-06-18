@@ -1,7 +1,25 @@
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import fg from "fast-glob";
+import { hasErrorCode } from "../core/errors.js";
 import type { DetectedProject } from "../core/types.js";
+
+const OPENAPI_SPEC_PATTERNS = [
+  "**/openapi.{json,yaml,yml}",
+  "**/openapi/*.{json,yaml,yml}",
+  "**/swagger.{json,yaml,yml}",
+  "**/swagger/*.{json,yaml,yml}"
+];
+
+const PROJECT_GLOB_IGNORES = [
+  ".git/**",
+  ".next/**",
+  ".qgate/**",
+  "build/**",
+  "coverage/**",
+  "dist/**",
+  "node_modules/**"
+];
 
 export async function detectProject(cwd: string): Promise<DetectedProject> {
   const packageJson = await readPackageJson(cwd);
@@ -9,20 +27,14 @@ export async function detectProject(cwd: string): Promise<DetectedProject> {
   const dependencies = packageJson?.dependencies ?? {};
   const devDependencies = packageJson?.devDependencies ?? {};
   const allDeps = { ...dependencies, ...devDependencies };
-  const openApiFiles = await fg(
-    [
-      "**/openapi.{json,yaml,yml}",
-      "**/swagger.{json,yaml,yml}",
-      "**/*openapi*.{json,yaml,yml}"
-    ],
-    {
-      cwd,
-      ignore: ["node_modules/**", "dist/**", ".next/**", ".qgate/**"],
-      dot: false
-    }
-  );
+  const openApiFiles = await fg(OPENAPI_SPEC_PATTERNS, {
+    cwd,
+    ignore: PROJECT_GLOB_IGNORES,
+    dot: false
+  });
 
-  const hasNext = Boolean(allDeps.next) || (await anyExists(cwd, ["next.config.js", "next.config.mjs", "next.config.ts"]));
+  const hasNext = Boolean(allDeps.next)
+    || (await anyExists(cwd, ["next.config.js", "next.config.cjs", "next.config.mjs", "next.config.mts", "next.config.ts"]));
   const hasReact = Boolean(allDeps.react);
   const hasPlaywright = Boolean(allDeps["@playwright/test"]) || (await anyExists(cwd, ["playwright.config.ts", "playwright.config.js"]));
   const testRunners: DetectedProject["testRunners"] = [];
@@ -49,14 +61,19 @@ async function readPackageJson(cwd: string): Promise<{
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
 } | undefined> {
+  const packageJsonPath = path.join(cwd, "package.json");
   try {
-    return JSON.parse(await readFile(path.join(cwd, "package.json"), "utf8")) as {
+    return JSON.parse(await readFile(packageJsonPath, "utf8")) as {
       scripts?: Record<string, string>;
       dependencies?: Record<string, string>;
       devDependencies?: Record<string, string>;
     };
-  } catch {
-    return undefined;
+  } catch (error) {
+    if (hasErrorCode(error, "ENOENT")) {
+      return undefined;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to read package.json at ${packageJsonPath}: ${message}`, { cause: error });
   }
 }
 
