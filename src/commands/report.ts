@@ -1,3 +1,4 @@
+// Rehydrates a prior run from JSON artifacts and renders human-readable reports.
 import type { Command } from "commander";
 import { createArtifactContextFromRunDir, readJsonArtifact, resolveRunDir, writeTextArtifact } from "../core/artifacts.js";
 import { createLogger } from "../core/logger.js";

@@ -1,3 +1,4 @@
+// GitHub adapter: reads Actions environment/event data without requiring network access.
 import { readFile } from "node:fs/promises";
 import type { GitHubContext } from "../core/types.js";
 

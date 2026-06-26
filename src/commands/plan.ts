@@ -1,3 +1,4 @@
+// The planning command is the cheap deterministic half: gather evidence, infer risk, and write artifacts.
 import type { Command } from "commander";
 import { analyzeChangedFiles } from "../analyzers/changed-files.js";
 import { runFallowAudit } from "../adapters/fallow.js";
@@ -64,6 +65,7 @@ export async function createPlan(options: PlanOptions): Promise<PlanResult> {
     throw new Error("qgate plan must run inside a git repository");
   }
 
+  // Keep the pipeline linear and auditable: every step feeds the artifacts that follow it.
   const { config } = await loadConfig(cwd);
   const logger = createLogger(Boolean(options.quiet));
   const artifactContext = await createArtifactContext(cwd, options.runId);

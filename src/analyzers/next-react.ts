@@ -1,3 +1,4 @@
+// Next/React-specific grouping helper. It summarizes classified surfaces without deciding policy.
 import type { Surface } from "../core/types.js";
 
 export interface NextReactAnalysis {

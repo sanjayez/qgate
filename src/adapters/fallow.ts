@@ -1,3 +1,4 @@
+// Optional Fallow adapter. Missing or malformed Fallow output becomes evidence, not a crash.
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { execa } from "execa";
@@ -49,6 +50,7 @@ export async function runFallowAudit(cwd: string, enabled: boolean): Promise<Fal
 }
 
 function normalizeFallowOutput(raw: unknown): FallowResult {
+  // Fallow output can evolve, so normalization accepts a few common summary shapes.
   const record = asRecord(raw);
   const verdict = normalizeVerdict(
     firstPresentValue(

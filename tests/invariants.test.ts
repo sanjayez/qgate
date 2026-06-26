@@ -1,3 +1,4 @@
+// Invariants protect the trust model: a gate must not accidentally become permissive.
 import { describe, expect, it } from "vitest";
 import { buildRiskMatrix, buildSummary } from "../src/risk/engine.js";
 import { renderGateReport } from "../src/report/render.js";

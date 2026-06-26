@@ -1,3 +1,4 @@
+// Runtime schemas for JSON artifacts. These make persisted evidence reject malformed shapes early.
 import { z } from "zod";
 import type { ImpactMap, Intent, RiskMatrix, Summary } from "./types.js";
 

@@ -1,3 +1,4 @@
+// Deterministic risk templates. This is where QGate's default non-happy-path obligations live.
 import type { RequiredCheck, Severity, SurfaceKind } from "../core/types.js";
 
 export interface RiskTemplate {

@@ -1,3 +1,4 @@
+// Heuristic changed-file classifier. Every surface carries reasons so reports stay auditable.
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { hasErrorCode } from "../core/errors.js";
@@ -65,6 +66,7 @@ export function classifyFile(file: ChangedFile, content = ""): Surface[] {
   if (isRoutePath(normalized)) add("route", "Next.js route surface changed");
   if (isComponentPath(normalized)) add("component", "React component surface changed", "medium");
   if (isDataPath(normalized)) add("data", "data model, migration, database, or persistence file changed");
+  // Content signals catch risk even when path names are bland or project-specific.
   if (isAuthPath(normalized) || containsAuthSignal(content)) add("auth", "auth or authorization signal detected");
   if (containsFormSignal(normalized, content)) add("form", "form or submit interaction signal detected");
   if (containsValidationSignal(normalized, content)) add("api", "validation schema affects API/input boundary", "medium");
@@ -148,6 +150,7 @@ function containsValidationSignal(filePath: string, content: string): boolean {
 
 async function readFileIfText(filePath: string): Promise<string> {
   try {
+    // Classification needs hints, not full file contents; skip binary and oversized files.
     if (BINARY_EXTENSIONS.has(path.extname(filePath).toLowerCase())) {
       return "";
     }

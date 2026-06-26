@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Thin CLI shell: command modules own behavior, this file only wires them together.
 import { pathToFileURL } from "node:url";
 import { Command } from "commander";
 import { registerInitCommand } from "./commands/init.js";

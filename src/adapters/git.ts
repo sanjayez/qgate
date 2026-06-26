@@ -1,3 +1,4 @@
+// Git adapter: isolates shelling out to git and normalizes diff name-status output.
 import { execa } from "execa";
 import type { ChangedFile } from "../core/types.js";
 
@@ -28,6 +29,7 @@ export async function getChangedFiles(
 }
 
 export function validateGitRef(ref: string, label: string): void {
+  // Refs are passed as argv, not through a shell, but validating them keeps diffs unambiguous.
   const trimmed = ref.trim();
   if (!trimmed) {
     throw new Error(`Invalid ${label} git ref: ref cannot be empty`);

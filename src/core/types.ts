@@ -1,3 +1,4 @@
+// Shared serializable contracts. Keep these aligned with src/core/schemas.ts.
 export type Severity = "critical" | "warning" | "info";
 export type Verdict = "pass" | "warn" | "fail";
 export type GateMode = "critical-blocks" | "report-only" | "strict";

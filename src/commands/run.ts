@@ -1,3 +1,4 @@
+// Run currently wraps plan and report rendering; execution-result adapters will plug in here.
 import type { Command } from "commander";
 import { createLogger } from "../core/logger.js";
 import { createArtifactContextFromRunDir, writeTextArtifact } from "../core/artifacts.js";
