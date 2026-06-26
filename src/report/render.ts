@@ -1,3 +1,4 @@
+// Report rendering is intentionally lightweight; JSON artifacts remain the source of truth.
 import type { ImpactMap, Intent, RiskMatrix, Summary } from "../core/types.js";
 
 const MAX_TOP_RISKS = 20;
@@ -129,6 +130,7 @@ export function renderHtmlReport(markdown: string): string {
 }
 
 function renderMarkdownBlocks(markdown: string): string {
+  // The HTML report supports only the Markdown subset QGate itself emits.
   const html: string[] = [];
   let inList = false;
 

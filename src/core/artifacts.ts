@@ -1,3 +1,4 @@
+// Artifact I/O boundary. All run ids and artifact names are validated before touching disk.
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { hasErrorCode } from "./errors.js";
@@ -110,12 +111,14 @@ function resolveArtifactFileInRunDir(runDir: string, name: string): string {
 }
 
 function assertSafeRunId(runId: string): void {
+  // Run ids become directory names, so disallow path separators and shell-sensitive characters.
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(runId)) {
     throw new Error(`Unsafe qgate run id: ${runId}`);
   }
 }
 
 function assertSafeArtifactName(name: string): void {
+  // Artifacts are fixed-name files inside a run directory, never nested paths.
   if (!/^[a-z0-9][a-z0-9.-]*\.(json|md|html|xml|sarif)$/u.test(name)) {
     throw new Error(`Unsafe qgate artifact name: ${name}`);
   }

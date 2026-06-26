@@ -1,3 +1,4 @@
+// Policy engine: turns classified surfaces and analyzer findings into risks, blockers, and verdicts.
 import type { FallowResult, GateBlocker, GateMode, Intent, RiskItem, RiskMatrix, Severity, Summary, Surface, Verdict } from "../core/types.js";
 import { templateForSurface } from "./catalog.js";
 
@@ -89,6 +90,7 @@ function collectBlockers(input: {
 }): GateBlocker[] {
   const blockers: GateBlocker[] = [];
 
+  // V1 fails closed when there are changes but no credible intent.
   if (input.mode !== "report-only" && input.changedFileCount > 0 && input.intent.confidence === "low") {
     blockers.push({
       id: "INTENT-001",
@@ -103,6 +105,7 @@ function collectBlockers(input: {
     (risk) => risk.severity === "critical" && !risk.id.startsWith("FALLOW-")
   ).length;
 
+  // Critical risk obligations are blockers until execution evidence exists to satisfy them.
   if (input.mode !== "report-only" && criticalCatalogRiskCount > 0) {
     blockers.push({
       id: "RISK-CRITICAL-001",

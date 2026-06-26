@@ -1,3 +1,4 @@
+// Test helper: builds a real temporary git repo from base/head fixture overlays.
 import { cp, mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";

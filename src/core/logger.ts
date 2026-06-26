@@ -1,3 +1,4 @@
+// Small CLI logger so commands can stay readable and tests can suppress output.
 import pc from "picocolors";
 
 export interface Logger {

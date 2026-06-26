@@ -1,3 +1,4 @@
+// Golden scenarios prove QGate's known-answer behavior on tiny fake PRs.
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";

@@ -1,3 +1,4 @@
+// Config loading stays deliberately conservative so qgate.config.ts can be JSON-compatible.
 import { access, readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -108,12 +109,14 @@ async function readConfigFile(filePath: string): Promise<unknown> {
 }
 
 function extractDefineConfigPayload(source: string): string {
+  // This is not a TypeScript evaluator. It accepts only a defineConfig(...) payload.
   const openParen = findDefineConfigOpenParen(source);
   const payloadEnd = findMatchingParen(source, openParen);
   return source.slice(openParen + 1, payloadEnd).trim().replace(/,\s*$/u, "");
 }
 
 function findDefineConfigOpenParen(source: string): number {
+  // Scan manually so comments/strings containing "defineConfig" do not confuse the parser.
   const marker = "defineConfig";
   let quote: "'" | "\"" | "`" | undefined;
   let escaped = false;
@@ -187,6 +190,7 @@ function findDefineConfigOpenParen(source: string): number {
 }
 
 function findMatchingParen(source: string, openParen: number): number {
+  // Match nested parentheses while ignoring parentheses inside comments and string literals.
   let depth = 0;
   let quote: "'" | "\"" | "`" | undefined;
   let escaped = false;
